@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Houlong Map Battle!</title>
+    <style>
+        :root {
+            --team-a: #4285F4;
+            --team-b: #EA4335;
+            --success: #34A853;
+            --bg: #202124;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: var(--bg);
+            color: white;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            text-align: center;
+            padding: 10px;
+            background: #333;
+            border-bottom: 2px solid #555;
+        }
+
+        .battle-container {
+            display: flex;
+            flex: 1;
+            width: 100%;
+        }
+
+        .team-side {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            border: 5px solid transparent;
+            transition: 0.3s;
+        }
+
+        #side-a { border-right: 2px solid #555; background-color: rgba(66, 133, 244, 0.05); }
+        #side-b { background-color: rgba(234, 67, 53, 0.05); }
+
+        .team-label { font-size: 32px; font-weight: bold; margin-bottom: 5px; }
+        .side-a-text { color: var(--team-a); }
+        .side-b-text { color: var(--team-b); }
+
+        .timer-box {
+            font-size: 24px;
+            background: #000;
+            padding: 5px 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .card {
+            aspect-ratio: 1/1;
+            background-color: #555;
+            border-radius: 8px;
+            cursor: pointer;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.3s;
+        }
+
+        .card.flipped { transform: rotateY(180deg); }
+        
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%; height: 100%;
+            backface-visibility: hidden;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .card-front { background: white; transform: rotateY(180deg); }
+        .card-front img { width: 85%; height: 85%; object-fit: contain; }
+        .card-back { background: #444; color: white; font-size: 30px; border: 2px solid #666; }
+
+        .team-side.finished { background-color: var(--success) !important; }
+        .win-message { display: none; font-size: 24px; text-align: center; margin-top: 20px; font-weight: bold; }
+
+        button#reset {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            padding: 10px 30px; font-size: 18px; border-radius: 20px; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Houlong Map Battle: Find the Matches!</h1>
+</div>
+
+<div class="battle-container">
+    <!-- TEAM A -->
+    <div class="team-side" id="side-a">
+        <div class="team-label side-a-text">TEAM A</div>
+        <div class="timer-box">Time: <span id="time-a">0</span>s | Score: <span id="score-a">0</span>/6</div>
+        <div class="game-grid" id="grid-a"></div>
+        <div class="win-message" id="msg-a">TEAM A FINISHED! 🎉</div>
+    </div>
+
+    <!-- TEAM B -->
+    <div class="team-side" id="side-b">
+        <div class="team-label side-b-text">TEAM B</div>
+        <div class="timer-box">Time: <span id="time-b">0</span>s | Score: <span id="score-b">0</span>/6</div>
+        <div class="game-grid" id="grid-b"></div>
+        <div class="win-message" id="msg-b">TEAM B FINISHED! 🎉</div>
+    </div>
+</div>
+
+<button id="reset" onclick="initGames()">Restart Battle</button>
+
+<script>
+    const images = [
+        { name: 'park', img: 'https://ik.imagekit.io/JungMin120519/google%20maps%205%20symbols%20only(houlong%20places)/park%20map%20symbol?updatedAt=1778654781233' },
+        { name: 'park', img: 'https://ik.imagekit.io/JungMin120519/google%20maps%205%20symbols%20only(houlong%20places)/park?updatedAt=1778653524283' },
+        { name: 'train', img: 'https://ik.imagekit.io/JungMin120519/google%20maps%205%20symbols%20only(houlong%20places)/train%20station%20symbol%20?updatedAt=1778654457359' },
+        { name: 'train', img: 'https://ik.imagekit.io/JungMin120519/google%20maps%205%20symbols%20only(houlong%20places)/train%20station?updatedAt=1778654104926' },
+        { name: 'fast', img: 'https://ik.imagekit.io/JungMin120519/google%20maps%205%20symbols%20only(houlong%20places)/fast%20train%20symbol?updatedAt=1778654449517' },
+        { name: 'fast', img: 'https://ik.imagekit.io/JungMin120519/google%20maps%205%20symbols%20only(houlong%20places)/fast%20train%20?updatedAt=1778654028208' },
+        { name: 'super', img: 'https://ik.imagekit.io/JungMin120519/google%20maps%205%20symbols%20only(houlong%20places)/supermarket%20symbol?updatedAt=1778654444827' },
+        { name: 'super', img: 'https://ik.imagekit.io/JungMin120519/google%20maps%205%20symbols%20only(houlong%20places)/supermarket?updatedAt=1778651246431' },
+        { name: 'rest', img: 'https://ik.imagekit.io/JungMin120519/google%20maps%205%20symbols%20only(houlong%20places)/restaurant%20symbol?updatedAt=1778654436030' },
+        { name: 'rest', img: 'https://ik.imagekit.io/JungMin120519/google%20maps%205%20symbols%20only(houlong%20places)/restaurant?updatedAt=1778652576112' },
+        { name: 'bus', img: 'https://ik.imagekit.io/JungMin120519/google%20maps%205%20symbols%20only(houlong%20places)/bus%20stop%20symbol?updatedAt=1778654411432' },
+        { name: 'bus', img: 'https://ik.imagekit.io/JungMin120519/google%20maps%205%20symbols%20only(houlong%20places)/bus%20stop?updatedAt=1778649872512' }
+    ];
+
+    let state = {
+        A: { flipped: [], score: 0, timer: 0, interval: null, done: false },
+        B: { flipped: [], score: 0, timer: 0, interval: null, done: false }
+    };
+
+    function initGames() {
+        clearInterval(state.A.interval);
+        clearInterval(state.B.interval);
+        state = {
+            A: { flipped: [], score: 0, timer: 0, interval: null, done: false },
+            B: { flipped: [], score: 0, timer: 0, interval: null, done: false }
+        };
+        
+        document.querySelectorAll('.win-message').forEach(m => m.style.display = 'none');
+        document.querySelectorAll('.team-side').forEach(s => s.classList.remove('finished'));
+        document.getElementById('score-a').textContent = '0';
+        document.getElementById('score-b').textContent = '0';
+        document.getElementById('time-a').textContent = '0';
+        document.getElementById('time-b').textContent = '0';
+
+        renderBoard('A', 'grid-a');
+        renderBoard('B', 'grid-b');
+        
+        startTimer('A');
+        startTimer('B');
+    }
+
+    function renderBoard(team, gridId) {
+        const grid = document.getElementById(gridId);
+        grid.innerHTML = '';
+        const shuffled = [...images].sort(() => Math.random() - 0.5);
+        
+        shuffled.forEach(data => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.dataset.name = data.name;
+            card.innerHTML = `
+                <div class="card-front"><img src="${data.img}"></div>
+                <div class="card-back">?</div>
+            `;
+            card.onclick = () => handleFlip(team, card);
+            grid.appendChild(card);
+        });
+    }
+
+    function startTimer(team) {
+        state[team].interval = setInterval(() => {
+            state[team].timer++;
+            document.getElementById(`time-${team.toLowerCase()}`).textContent = state[team].timer;
+        }, 1000);
+    }
+
+    function handleFlip(team, card) {
+        const s = state[team];
+        if (s.done || s.flipped.length >= 2 || card.classList.contains('flipped')) return;
+
+        card.classList.add('flipped');
+        s.flipped.push(card);
+
+        if (s.flipped.length === 2) {
+            if (s.flipped[0].dataset.name === s.flipped[1].dataset.name) {
+                s.score++;
+                document.getElementById(`score-${team.toLowerCase()}`).textContent = s.score;
+                s.flipped = [];
+                if (s.score === 6) {
+                    s.done = true;
+                    clearInterval(s.interval);
+                    document.getElementById(`side-${team.toLowerCase()}`).classList.add('finished');
+                    document.getElementById(`msg-${team.toLowerCase()}`).style.display = 'block';
+                }
+            } else {
+                setTimeout(() => {
+                    s.flipped.forEach(c => c.classList.remove('flipped'));
+                    s.flipped = [];
+                }, 800);
+            }
+        }
+    }
+
+    initGames();
+</script>
+
+</body>
+</html>
